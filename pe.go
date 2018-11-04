@@ -110,7 +110,7 @@ var E editorConfig
 /*** filetypes ***/
 
 var HLDB []editorSyntax = []editorSyntax{
-	editorSyntax{
+	{
 		filetype:  "c",
 		filematch: []string{".c", ".h", ".cpp"},
 		keywords: []string{"switch", "if", "while", "for",
@@ -723,7 +723,7 @@ func editorFindCallback(qry []byte, key int) {
 	}
 	current := lastMatch
 
-	for _ = range E.rows {
+	for range E.rows {
 		current += direction
 		if current == -1 {
 			current = E.numRows - 1
