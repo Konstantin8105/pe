@@ -30,6 +30,5 @@ func TestEditor(t *testing.T) {
 		run()
 		ch <- true
 	}()
-
-	fmt.Println("Done : ", <-ch)
+	<-ch // done
 }
