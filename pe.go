@@ -14,6 +14,115 @@ import (
 	"unsafe"
 )
 
+type Terminal interface {
+	enableRawMode()
+	disableRawMode()
+	initEditor()
+	editorReadKey() int
+}
+
+var term Terminal = Console{}
+
+type Console struct{}
+
+func (c Console) disableRawMode() {
+	if e := TcSetAttr(os.Stdin.Fd(), E.origTermios); e != nil {
+		log.Fatalf("Problem disabling raw mode: %s\n", e)
+	}
+}
+
+func (c Console) enableRawMode() {
+	E.origTermios = TcGetAttr(os.Stdin.Fd())
+	var raw Termios
+	raw = *E.origTermios
+	raw.Iflag &^= syscall.BRKINT | syscall.ICRNL | syscall.INPCK | syscall.ISTRIP | syscall.IXON
+	raw.Oflag &^= syscall.OPOST
+	raw.Cflag |= syscall.CS8
+	raw.Lflag &^= syscall.ECHO | syscall.ICANON | syscall.IEXTEN | syscall.ISIG
+	raw.Cc[syscall.VMIN+1] = 0
+	raw.Cc[syscall.VTIME+1] = 1
+	if e := TcSetAttr(os.Stdin.Fd(), &raw); e != nil {
+		log.Fatalf("Problem enabling raw mode: %s\n", e)
+	}
+}
+
+func (c Console) initEditor() {
+	// Initialization a la C not necessary.
+	if getWindowSize(&E.screenRows, &E.screenCols) == -1 {
+		die(fmt.Errorf("couldn't get screen size"))
+	}
+	E.screenRows -= 2
+}
+
+func (c Console) editorReadKey() int {
+	var buffer [1]byte
+	var cc int
+	var err error
+	for cc, err = os.Stdin.Read(buffer[:]); cc != 1; cc, err = os.Stdin.Read(buffer[:]) {
+	}
+	if err != nil {
+		die(err)
+	}
+	if buffer[0] == '\x1b' {
+		var seq [2]byte
+		if cc, _ = os.Stdin.Read(seq[:]); cc != 2 {
+			return '\x1b'
+		}
+
+		if seq[0] == '[' {
+			if seq[1] >= '0' && seq[1] <= '9' {
+				if cc, err = os.Stdin.Read(buffer[:]); cc != 1 {
+					return '\x1b'
+				}
+				if buffer[0] == '~' {
+					switch seq[1] {
+					case '1':
+						return HOME_KEY
+					case '3':
+						return DEL_KEY
+					case '4':
+						return END_KEY
+					case '5':
+						return PAGE_UP
+					case '6':
+						return PAGE_DOWN
+					case '7':
+						return HOME_KEY
+					case '8':
+						return END_KEY
+					}
+				}
+				// XXX - what happens here?
+			} else {
+				switch seq[1] {
+				case 'A':
+					return ARROW_UP
+				case 'B':
+					return ARROW_DOWN
+				case 'C':
+					return ARROW_RIGHT
+				case 'D':
+					return ARROW_LEFT
+				case 'H':
+					return HOME_KEY
+				case 'F':
+					return END_KEY
+				}
+			}
+		} else if seq[0] == '0' {
+			switch seq[1] {
+			case 'H':
+				return HOME_KEY
+			case 'F':
+				return END_KEY
+			}
+		}
+
+		return '\x1b'
+	}
+	return int(buffer[0])
+}
+
 /*** defines ***/
 
 const KILO_VERSION = "0.0.1"
@@ -129,7 +238,7 @@ var HLDB []editorSyntax = []editorSyntax{
 /*** terminal ***/
 
 func die(err error) {
-	disableRawMode()
+	term.disableRawMode()
 	io.WriteString(os.Stdout, "\x1b[2J")
 	io.WriteString(os.Stdout, "\x1b[H")
 	log.Fatal(err)
@@ -137,108 +246,28 @@ func die(err error) {
 
 func TcSetAttr(fd uintptr, termios *Termios) error {
 	// TCSETS+1 == TCSETSW, because TCSAFLUSH doesn't exist
-	if _, _, err := syscall.Syscall(syscall.SYS_IOCTL, fd, uintptr(syscall.TCSETS+1), uintptr(unsafe.Pointer(termios))); err != 0 {
-		return err
+	if _, _, err := syscall.Syscall(
+		syscall.SYS_IOCTL,
+		fd,
+		uintptr(syscall.TCSETS+1), uintptr(unsafe.Pointer(termios))); err != 0 {
+
+		return fmt.Errorf("TcSetAttr: %v", err)
 	}
 	return nil
 }
 
 func TcGetAttr(fd uintptr) *Termios {
 	var termios = &Termios{}
-	if _, _, err := syscall.Syscall(syscall.SYS_IOCTL, fd, syscall.TCGETS, uintptr(unsafe.Pointer(termios))); err != 0 {
+	if _, _, err := syscall.Syscall(
+		syscall.SYS_IOCTL,
+		fd,
+		syscall.TCGETS,
+		uintptr(unsafe.Pointer(termios))); err != 0 {
+
 		log.Fatalf("Problem getting terminal attributes: %s\n", err)
+		return nil
 	}
 	return termios
-}
-
-func enableRawMode() {
-	E.origTermios = TcGetAttr(os.Stdin.Fd())
-	var raw Termios
-	raw = *E.origTermios
-	raw.Iflag &^= syscall.BRKINT | syscall.ICRNL | syscall.INPCK | syscall.ISTRIP | syscall.IXON
-	raw.Oflag &^= syscall.OPOST
-	raw.Cflag |= syscall.CS8
-	raw.Lflag &^= syscall.ECHO | syscall.ICANON | syscall.IEXTEN | syscall.ISIG
-	raw.Cc[syscall.VMIN+1] = 0
-	raw.Cc[syscall.VTIME+1] = 1
-	if e := TcSetAttr(os.Stdin.Fd(), &raw); e != nil {
-		log.Fatalf("Problem enabling raw mode: %s\n", e)
-	}
-}
-
-func disableRawMode() {
-	if e := TcSetAttr(os.Stdin.Fd(), E.origTermios); e != nil {
-		log.Fatalf("Problem disabling raw mode: %s\n", e)
-	}
-}
-
-func editorReadKey() int {
-	var buffer [1]byte
-	var cc int
-	var err error
-	for cc, err = os.Stdin.Read(buffer[:]); cc != 1; cc, err = os.Stdin.Read(buffer[:]) {
-	}
-	if err != nil {
-		die(err)
-	}
-	if buffer[0] == '\x1b' {
-		var seq [2]byte
-		if cc, _ = os.Stdin.Read(seq[:]); cc != 2 {
-			return '\x1b'
-		}
-
-		if seq[0] == '[' {
-			if seq[1] >= '0' && seq[1] <= '9' {
-				if cc, err = os.Stdin.Read(buffer[:]); cc != 1 {
-					return '\x1b'
-				}
-				if buffer[0] == '~' {
-					switch seq[1] {
-					case '1':
-						return HOME_KEY
-					case '3':
-						return DEL_KEY
-					case '4':
-						return END_KEY
-					case '5':
-						return PAGE_UP
-					case '6':
-						return PAGE_DOWN
-					case '7':
-						return HOME_KEY
-					case '8':
-						return END_KEY
-					}
-				}
-				// XXX - what happens here?
-			} else {
-				switch seq[1] {
-				case 'A':
-					return ARROW_UP
-				case 'B':
-					return ARROW_DOWN
-				case 'C':
-					return ARROW_RIGHT
-				case 'D':
-					return ARROW_LEFT
-				case 'H':
-					return HOME_KEY
-				case 'F':
-					return END_KEY
-				}
-			}
-		} else if seq[0] == '0' {
-			switch seq[1] {
-			case 'H':
-				return HOME_KEY
-			case 'F':
-				return END_KEY
-			}
-		}
-
-		return '\x1b'
-	}
-	return int(buffer[0])
 }
 
 func getCursorPosition(rows *int, cols *int) int {
@@ -773,7 +802,7 @@ func editorPrompt(prompt string, callback func([]byte, int)) string {
 		editorSetStatusMessage(prompt, buf)
 		editorRefreshScreen()
 
-		c := editorReadKey()
+		c := term.editorReadKey()
 
 		if c == DEL_KEY || c == ('h'&0x1f) || c == BACKSPACE {
 			if len(buf) > 0 {
@@ -844,7 +873,7 @@ func editorMoveCursor(key int) {
 var quitTimes int = KILO_QUIT_TIMES
 
 func editorProcessKeypress() {
-	c := editorReadKey()
+	c := term.editorReadKey()
 	switch c {
 	case '\r':
 		editorInsertNewLine()
@@ -857,7 +886,7 @@ func editorProcessKeypress() {
 		}
 		io.WriteString(os.Stdout, "\x1b[2J")
 		io.WriteString(os.Stdout, "\x1b[H")
-		disableRawMode()
+		term.disableRawMode()
 		os.Exit(0)
 	case ('s' & 0x1f):
 		editorSave()
@@ -1058,18 +1087,14 @@ func editorSetStatusMessage(args ...interface{}) {
 
 /*** init ***/
 
-func initEditor() {
-	// Initialization a la C not necessary.
-	if getWindowSize(&E.screenRows, &E.screenCols) == -1 {
-		die(fmt.Errorf("couldn't get screen size"))
-	}
-	E.screenRows -= 2
+func main() {
+	run()
 }
 
-func main() {
-	enableRawMode()
-	defer disableRawMode()
-	initEditor()
+func run() {
+	term.enableRawMode()
+	defer term.disableRawMode()
+	term.initEditor()
 	if len(os.Args) > 1 {
 		editorOpen(os.Args[1])
 	}
