@@ -12,3 +12,4 @@
 *.out
 pe
 testdata/keys
+testdata/fout

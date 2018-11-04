@@ -21,11 +21,31 @@ type Terminal interface {
 	disableRawMode()
 	initEditor()
 	editorReadKey() int
+	getWindowSize(rows *int, cols *int) int
 }
 
+var termOut *os.File = os.Stdout
 var term Terminal = Console{}
 
 type Console struct{}
+
+func (c Console) getWindowSize(rows *int, cols *int) int {
+	var w WinSize
+	_, _, err := syscall.Syscall(syscall.SYS_IOCTL,
+		termOut.Fd(),
+		syscall.TIOCGWINSZ,
+		uintptr(unsafe.Pointer(&w)),
+	)
+	if err != 0 { // type syscall.Errno
+		io.WriteString(termOut, "\x1b[999C\x1b[999B")
+		return getCursorPosition(rows, cols)
+	} else {
+		*rows = int(w.Row)
+		*cols = int(w.Col)
+		return 0
+	}
+	return -1
+}
 
 func (c Console) disableRawMode() {
 	if e := TcSetAttr(os.Stdin.Fd(), E.origTermios); e != nil {
@@ -50,7 +70,7 @@ func (c Console) enableRawMode() {
 
 func (c Console) initEditor() {
 	// Initialization a la C not necessary.
-	if getWindowSize(&E.screenRows, &E.screenCols) == -1 {
+	if c.getWindowSize(&E.screenRows, &E.screenCols) == -1 {
 		die(fmt.Errorf("couldn't get screen size"))
 	}
 	E.screenRows -= 2
@@ -266,8 +286,8 @@ var HLDB []editorSyntax = []editorSyntax{
 
 func die(err error) {
 	term.disableRawMode()
-	io.WriteString(os.Stdout, "\x1b[2J")
-	io.WriteString(os.Stdout, "\x1b[H")
+	io.WriteString(termOut, "\x1b[2J")
+	io.WriteString(termOut, "\x1b[H")
 	log.Fatal(err)
 }
 
@@ -298,7 +318,7 @@ func TcGetAttr(fd uintptr) *Termios {
 }
 
 func getCursorPosition(rows *int, cols *int) int {
-	io.WriteString(os.Stdout, "\x1b[6n")
+	io.WriteString(termOut, "\x1b[6n")
 	var buffer [1]byte
 	var buf []byte
 	var cc int
@@ -322,24 +342,6 @@ func getCursorPosition(rows *int, cols *int) int {
 		return -1
 	}
 	return 0
-}
-
-func getWindowSize(rows *int, cols *int) int {
-	var w WinSize
-	_, _, err := syscall.Syscall(syscall.SYS_IOCTL,
-		os.Stdout.Fd(),
-		syscall.TIOCGWINSZ,
-		uintptr(unsafe.Pointer(&w)),
-	)
-	if err != 0 { // type syscall.Errno
-		io.WriteString(os.Stdout, "\x1b[999C\x1b[999B")
-		return getCursorPosition(rows, cols)
-	} else {
-		*rows = int(w.Row)
-		*cols = int(w.Col)
-		return 0
-	}
-	return -1
 }
 
 /*** syntax hightlighting ***/
@@ -899,7 +901,7 @@ func editorMoveCursor(key int) {
 
 var quitTimes int = KILO_QUIT_TIMES
 
-func editorProcessKeypress() {
+func editorProcessKeypress() (outOfProgram bool) {
 	c := term.editorReadKey()
 	switch c {
 	case '\r':
@@ -911,10 +913,11 @@ func editorProcessKeypress() {
 			quitTimes--
 			return
 		}
-		io.WriteString(os.Stdout, "\x1b[2J")
-		io.WriteString(os.Stdout, "\x1b[H")
+		io.WriteString(termOut, "\x1b[2J")
+		io.WriteString(termOut, "\x1b[H")
 		term.disableRawMode()
-		os.Exit(0)
+		// os.Exit(0)
+		return true
 	case ('s' & 0x1f):
 		editorSave()
 	case HOME_KEY:
@@ -955,6 +958,7 @@ func editorProcessKeypress() {
 		editorInsertChar(byte(c))
 	}
 	quitTimes = KILO_QUIT_TIMES
+	return
 }
 
 /*** output ***/
@@ -989,7 +993,7 @@ func editorRefreshScreen() {
 	editorDrawMessageBar(ab)
 	ab.WriteString(fmt.Sprintf("\x1b[%d;%dH", (E.cy-E.rowoff)+1, (E.rx-E.coloff)+1))
 	ab.WriteString("\x1b[?25h")
-	_, e := ab.WriteTo(os.Stdout)
+	_, e := ab.WriteTo(termOut)
 	if e != nil {
 		log.Fatal(e)
 	}
@@ -1122,14 +1126,16 @@ func run() {
 	term.enableRawMode()
 	defer term.disableRawMode()
 	term.initEditor()
-	if len(os.Args) > 1 {
-		editorOpen(os.Args[1])
-	}
+	// if len(os.Args) > 1 {
+	// 	editorOpen(os.Args[1])
+	// }
 
 	editorSetStatusMessage("HELP: Ctrl-S = save | Ctrl-Q = quit | Ctrl-F = find")
 
 	for {
 		editorRefreshScreen()
-		editorProcessKeypress()
+		if editorProcessKeypress() {
+			break
+		}
 	}
 }
