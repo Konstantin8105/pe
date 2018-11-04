@@ -5,8 +5,10 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -54,7 +56,32 @@ func (c Console) initEditor() {
 	E.screenRows -= 2
 }
 
-func (c Console) editorReadKey() int {
+func (c Console) editorReadKey() (key int) {
+	// only fo debugging
+	defer func() {
+		path := "./testdata/keys"
+		var _, err = os.Stat(path)
+
+		// create file if not exists
+		if os.IsNotExist(err) {
+			var file, err = os.Create(path)
+			if err != nil {
+				log.Fatal(err)
+			}
+			file.Close()
+		}
+
+		content, err := ioutil.ReadFile(path)
+		if err != nil {
+			log.Fatal(err)
+		}
+		content = append(content, []byte(strconv.Itoa(key)+" \n")...)
+		err = ioutil.WriteFile(path, content, 0644)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
+
 	var buffer [1]byte
 	var cc int
 	var err error
