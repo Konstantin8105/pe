@@ -27,27 +27,50 @@ var term Terminal = Console{}
 type Console struct{}
 
 func (c Console) getWindowSize(rows *int, cols *int) int {
-
 	w := struct {
-		Row    uint16
-		Col    uint16
-		Xpixel uint16
-		Ypixel uint16
+		Row, Col       uint16
+		Xpixel, Ypixel uint16
 	}{}
-	_, _, err := syscall.Syscall(syscall.SYS_IOCTL,
+	if _, _, err := syscall.Syscall(syscall.SYS_IOCTL,
 		termOut.Fd(),
 		syscall.TIOCGWINSZ,
 		uintptr(unsafe.Pointer(&w)),
-	)
-	if err != 0 { // type syscall.Errno
+	); err != 0 { // type syscall.Errno
+		// ioctl() isn’t guaranteed to be able to request the window size on all systems.
+		// The strategy is to position the cursor at the bottom-right of the
+		// screen, then use escape sequences that let us query the position
+		// of the cursor. That tells us how many rows and columns there must be
+		// on the screen.
 		io.WriteString(termOut, "\x1b[999C\x1b[999B")
-		return getCursorPosition(rows, cols)
-	} else {
-		*rows = int(w.Row)
-		*cols = int(w.Col)
+		io.WriteString(termOut, "\x1b[6n")
+		var buffer [1]byte
+		var buf []byte
+		var cc int
+		for cc, _ = os.Stdin.Read(buffer[:]); cc == 1; cc, _ = os.Stdin.Read(buffer[:]) {
+			if buffer[0] == 'R' {
+				break
+			}
+			buf = append(buf, buffer[0])
+		}
+		if string(buf[0:2]) != "\x1b[" {
+			log.Printf("Failed to read rows;cols from tty\n")
+			return -1
+		}
+		if n, e := fmt.Sscanf(string(buf[2:]), "%d;%d", rows, cols); n != 2 || e != nil {
+			if e != nil {
+				log.Printf("getCursorPosition: fmt.Sscanf() failed: %s\n", e)
+			}
+			if n != 2 {
+				log.Printf("getCursorPosition: got %d items, wanted 2\n", n)
+			}
+			return -1
+		}
 		return 0
 	}
-	return -1
+
+	*rows = int(w.Row)
+	*cols = int(w.Col)
+	return 0
 }
 
 func (c Console) editorReadKey() (key int) {
@@ -272,33 +295,6 @@ func TcGetAttr(fd uintptr) *syscall.Termios {
 		return nil
 	}
 	return termios
-}
-
-func getCursorPosition(rows *int, cols *int) int {
-	io.WriteString(termOut, "\x1b[6n")
-	var buffer [1]byte
-	var buf []byte
-	var cc int
-	for cc, _ = os.Stdin.Read(buffer[:]); cc == 1; cc, _ = os.Stdin.Read(buffer[:]) {
-		if buffer[0] == 'R' {
-			break
-		}
-		buf = append(buf, buffer[0])
-	}
-	if string(buf[0:2]) != "\x1b[" {
-		log.Printf("Failed to read rows;cols from tty\n")
-		return -1
-	}
-	if n, e := fmt.Sscanf(string(buf[2:]), "%d;%d", rows, cols); n != 2 || e != nil {
-		if e != nil {
-			log.Printf("getCursorPosition: fmt.Sscanf() failed: %s\n", e)
-		}
-		if n != 2 {
-			log.Printf("getCursorPosition: got %d items, wanted 2\n", n)
-		}
-		return -1
-	}
-	return 0
 }
 
 // syntax hightlighting
