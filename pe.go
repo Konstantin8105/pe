@@ -27,7 +27,13 @@ var term Terminal = Console{}
 type Console struct{}
 
 func (c Console) getWindowSize(rows *int, cols *int) int {
-	var w WinSize
+
+	w := struct {
+		Row    uint16
+		Col    uint16
+		Xpixel uint16
+		Ypixel uint16
+	}{}
 	_, _, err := syscall.Syscall(syscall.SYS_IOCTL,
 		termOut.Fd(),
 		syscall.TIOCGWINSZ,
@@ -210,13 +216,6 @@ type editorConfig struct {
 	statusmsg_time time.Time
 	syntax         *editorSyntax
 	origTermios    *syscall.Termios
-}
-
-type WinSize struct {
-	Row    uint16
-	Col    uint16
-	Xpixel uint16
-	Ypixel uint16
 }
 
 var E editorConfig
