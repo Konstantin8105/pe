@@ -764,19 +764,15 @@ func editorFindCallback(qry []byte, key int) {
 }
 
 func editorFind() error {
-	savedCx := E.cx
-	savedCy := E.cy
-	savedColoff := E.coloff
-	savedRowoff := E.rowoff
+	savedCx, savedCy := E.cx, E.cy
+	savedColoff, savedRowoff := E.coloff, E.rowoff
 	query, err := editorPrompt("Search: %s (ESC/Arrows/Enter)", editorFindCallback)
 	if err != nil {
 		return fmt.Errorf("Find error: %v", err)
 	}
 	if query == "" {
-		E.cx = savedCx
-		E.cy = savedCy
-		E.coloff = savedColoff
-		E.rowoff = savedRowoff
+		E.cx, E.cy = savedCx, savedCy
+		E.coloff, E.rowoff = savedColoff, savedRowoff
 	}
 	return nil
 }
