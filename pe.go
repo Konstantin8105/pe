@@ -193,16 +193,6 @@ type editorSyntax struct {
 	flags                  int
 }
 
-type Termios struct {
-	Iflag  uint32
-	Oflag  uint32
-	Cflag  uint32
-	Lflag  uint32
-	Cc     [20]byte
-	Ispeed uint32
-	Ospeed uint32
-}
-
 type erow struct {
 	idx           int
 	size          int
@@ -228,7 +218,7 @@ type editorConfig struct {
 	statusmsg      string
 	statusmsg_time time.Time
 	syntax         *editorSyntax
-	origTermios    *Termios
+	origTermios    *syscall.Termios
 }
 
 type WinSize struct {
@@ -268,7 +258,7 @@ func die(err error) {
 	log.Fatal(err)
 }
 
-func TcSetAttr(fd uintptr, termios *Termios) error {
+func TcSetAttr(fd uintptr, termios *syscall.Termios) error {
 	// TCSETS+1 == TCSETSW, because TCSAFLUSH doesn't exist
 	if _, _, err := syscall.Syscall(
 		syscall.SYS_IOCTL,
@@ -280,8 +270,8 @@ func TcSetAttr(fd uintptr, termios *Termios) error {
 	return nil
 }
 
-func TcGetAttr(fd uintptr) *Termios {
-	var termios = &Termios{}
+func TcGetAttr(fd uintptr) *syscall.Termios {
+	var termios = &syscall.Termios{}
 	if _, _, err := syscall.Syscall(
 		syscall.SYS_IOCTL,
 		fd,
@@ -1098,7 +1088,7 @@ func editorSetStatusMessage(args ...interface{}) {
 func main() {
 	//  enable raw mode
 	E.origTermios = TcGetAttr(os.Stdin.Fd())
-	var raw Termios
+	var raw syscall.Termios
 	raw = *E.origTermios
 	raw.Iflag &^= syscall.BRKINT | syscall.ICRNL | syscall.INPCK | syscall.ISTRIP | syscall.IXON
 	raw.Oflag &^= syscall.OPOST
