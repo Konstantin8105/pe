@@ -17,8 +17,6 @@ import (
 )
 
 type Terminal interface {
-	enableRawMode()
-	disableRawMode()
 	initEditor()
 	editorReadKey() int
 	getWindowSize(rows *int, cols *int) int
@@ -45,27 +43,6 @@ func (c Console) getWindowSize(rows *int, cols *int) int {
 		return 0
 	}
 	return -1
-}
-
-func (c Console) disableRawMode() {
-	if e := TcSetAttr(os.Stdin.Fd(), E.origTermios); e != nil {
-		log.Fatalf("Problem disabling raw mode: %s\n", e)
-	}
-}
-
-func (c Console) enableRawMode() {
-	E.origTermios = TcGetAttr(os.Stdin.Fd())
-	var raw Termios
-	raw = *E.origTermios
-	raw.Iflag &^= syscall.BRKINT | syscall.ICRNL | syscall.INPCK | syscall.ISTRIP | syscall.IXON
-	raw.Oflag &^= syscall.OPOST
-	raw.Cflag |= syscall.CS8
-	raw.Lflag &^= syscall.ECHO | syscall.ICANON | syscall.IEXTEN | syscall.ISIG
-	raw.Cc[syscall.VMIN+1] = 0
-	raw.Cc[syscall.VTIME+1] = 1
-	if e := TcSetAttr(os.Stdin.Fd(), &raw); e != nil {
-		log.Fatalf("Problem enabling raw mode: %s\n", e)
-	}
 }
 
 func (c Console) initEditor() {
@@ -285,7 +262,7 @@ var HLDB []editorSyntax = []editorSyntax{
 /*** terminal ***/
 
 func die(err error) {
-	term.disableRawMode()
+	// term.disableRawMode()
 	io.WriteString(termOut, "\x1b[2J")
 	io.WriteString(termOut, "\x1b[H")
 	log.Fatal(err)
@@ -915,7 +892,7 @@ func editorProcessKeypress() (outOfProgram bool) {
 		}
 		io.WriteString(termOut, "\x1b[2J")
 		io.WriteString(termOut, "\x1b[H")
-		term.disableRawMode()
+		// term.disableRawMode()
 		// os.Exit(0)
 		return true
 	case ('s' & 0x1f):
@@ -1119,12 +1096,30 @@ func editorSetStatusMessage(args ...interface{}) {
 /*** init ***/
 
 func main() {
+	//  enable raw mode
+	E.origTermios = TcGetAttr(os.Stdin.Fd())
+	var raw Termios
+	raw = *E.origTermios
+	raw.Iflag &^= syscall.BRKINT | syscall.ICRNL | syscall.INPCK | syscall.ISTRIP | syscall.IXON
+	raw.Oflag &^= syscall.OPOST
+	raw.Cflag |= syscall.CS8
+	raw.Lflag &^= syscall.ECHO | syscall.ICANON | syscall.IEXTEN | syscall.ISIG
+	raw.Cc[syscall.VMIN+1] = 0
+	raw.Cc[syscall.VTIME+1] = 1
+	if e := TcSetAttr(os.Stdin.Fd(), &raw); e != nil {
+		log.Fatalf("Problem enabling raw mode: %s\n", e)
+	}
+
+	defer func() { // disable raw mode
+		if e := TcSetAttr(os.Stdin.Fd(), E.origTermios); e != nil {
+			log.Fatalf("Problem disabling raw mode: %s\n", e)
+		}
+	}()
+
 	run()
 }
 
 func run() {
-	term.enableRawMode()
-	defer term.disableRawMode()
 	term.initEditor()
 	// if len(os.Args) > 1 {
 	// 	editorOpen(os.Args[1])

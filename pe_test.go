@@ -10,9 +10,7 @@ type Mock struct {
 	line []int
 }
 
-func (Mock) enableRawMode()  {}
-func (Mock) disableRawMode() {}
-func (Mock) initEditor()     {}
+func (Mock) initEditor() {}
 func (m *Mock) editorReadKey() int {
 	defer func() {
 		m.pos++
