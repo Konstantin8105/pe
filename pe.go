@@ -789,18 +789,18 @@ func editorPrompt(prompt string, callback func([]byte, int)) (string, error) {
 		}
 
 		c := term.editorReadKey()
-
-		if c == DEL_KEY || c == ('h'&0x1f) || c == BACKSPACE {
+		switch c {
+		case DEL_KEY, ('h' & 0x1f), BACKSPACE:
 			if len(buf) > 0 {
 				buf = buf[:len(buf)-1]
 			}
-		} else if c == '\x1b' {
+		case '\x1b':
 			editorSetStatusMessage("")
 			if callback != nil {
 				callback(buf, c)
 			}
 			return "", nil
-		} else if c == '\r' {
+		case '\r':
 			if len(buf) != 0 {
 				editorSetStatusMessage("")
 				if callback != nil {
@@ -808,11 +808,12 @@ func editorPrompt(prompt string, callback func([]byte, int)) (string, error) {
 				}
 				return string(buf), nil
 			}
-		} else {
+		default:
 			if unicode.IsPrint(rune(c)) {
 				buf = append(buf, byte(c))
 			}
 		}
+
 		if callback != nil {
 			callback(buf, c)
 		}
