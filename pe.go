@@ -238,7 +238,6 @@ type editorConfig struct {
 	statusmsg      string
 	statusmsg_time time.Time
 	syntax         *editorSyntax
-	origTermios    *syscall.Termios
 }
 
 var E editorConfig
@@ -1073,9 +1072,9 @@ func editorSetStatusMessage(args ...interface{}) {
 
 func main() {
 	//  enable raw mode
-	E.origTermios = TcGetAttr(os.Stdin.Fd())
+	origTermios := TcGetAttr(os.Stdin.Fd())
 	var raw syscall.Termios
-	raw = *E.origTermios
+	raw = *origTermios
 	raw.Iflag &^= syscall.BRKINT | syscall.ICRNL | syscall.INPCK | syscall.ISTRIP | syscall.IXON
 	raw.Oflag &^= syscall.OPOST
 	raw.Cflag |= syscall.CS8
@@ -1087,7 +1086,7 @@ func main() {
 	}
 
 	defer func() { // disable raw mode
-		if e := TcSetAttr(os.Stdin.Fd(), E.origTermios); e != nil {
+		if e := TcSetAttr(os.Stdin.Fd(), origTermios); e != nil {
 			log.Fatalf("Problem disabling raw mode: %s\n", e)
 		}
 	}()
