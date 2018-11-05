@@ -17,7 +17,6 @@ import (
 )
 
 type Terminal interface {
-	initEditor()
 	editorReadKey() int
 	getWindowSize(rows *int, cols *int) int
 }
@@ -43,14 +42,6 @@ func (c Console) getWindowSize(rows *int, cols *int) int {
 		return 0
 	}
 	return -1
-}
-
-func (c Console) initEditor() {
-	// Initialization a la C not necessary.
-	if c.getWindowSize(&E.screenRows, &E.screenCols) == -1 {
-		die(fmt.Errorf("couldn't get screen size"))
-	}
-	E.screenRows -= 2
 }
 
 func (c Console) editorReadKey() (key int) {
@@ -1109,8 +1100,16 @@ func main() {
 	run()
 }
 
+func initEditor() {
+	// Initialization a la C not necessary.
+	if term.getWindowSize(&E.screenRows, &E.screenCols) == -1 {
+		die(fmt.Errorf("couldn't get screen size"))
+	}
+	E.screenRows -= 2
+}
+
 func run() {
-	term.initEditor()
+	initEditor()
 	// if len(os.Args) > 1 {
 	// 	editorOpen(os.Args[1])
 	// }

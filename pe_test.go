@@ -10,7 +10,6 @@ type Mock struct {
 	line []int
 }
 
-func (Mock) initEditor() {}
 func (m *Mock) editorReadKey() int {
 	defer func() {
 		m.pos++
