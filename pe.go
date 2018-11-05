@@ -138,7 +138,7 @@ func (c Console) editorReadKey() (key int) {
 	return int(buffer[0])
 }
 
-/*** defines ***/
+// defines
 
 const KILO_VERSION = "0.0.1"
 const KILO_TAB_STOP = 8
@@ -172,7 +172,7 @@ const (
 	HL_HIGHLIGHT_STRINGS = 1 << iota
 )
 
-/*** data ***/
+// data
 
 type editorSyntax struct {
 	filetype               string
@@ -221,7 +221,7 @@ type WinSize struct {
 
 var E editorConfig
 
-/*** filetypes ***/
+// filetypes
 
 var HLDB []editorSyntax = []editorSyntax{
 	{
@@ -240,7 +240,7 @@ var HLDB []editorSyntax = []editorSyntax{
 	},
 }
 
-/*** terminal ***/
+// terminal
 
 func die(err error) {
 	// term.disableRawMode()
@@ -302,7 +302,7 @@ func getCursorPosition(rows *int, cols *int) int {
 	return 0
 }
 
-/*** syntax hightlighting ***/
+// syntax hightlighting
 var separators []byte = []byte(",.()+-/*=~%<>[]; \t\n\r")
 
 func isSeparator(c byte) bool {
@@ -462,7 +462,7 @@ func editorSelectSyntaxHighlight() {
 	}
 }
 
-/*** row operations ***/
+// row operations
 
 func editorRowCxToRx(row *erow, cx int) int {
 	rx := 0
@@ -596,7 +596,7 @@ func editorRowDelChar(row *erow, at int) {
 	editorUpdateRow(row)
 }
 
-/*** editor operations ***/
+// editor operations
 
 func editorInsertChar(c byte) {
 	if E.cy == E.numRows {
@@ -638,7 +638,7 @@ func editorDelChar() {
 	}
 }
 
-/*** file I/O ***/
+// file I/O
 
 func editorRowsToString() (string, int) {
 	totlen := 0
@@ -706,7 +706,7 @@ func editorSave() {
 	editorSetStatusMessage("Can't save! I/O error %s", err)
 }
 
-/*** find ***/
+// find
 
 var lastMatch int = -1
 var direction int = 1
@@ -780,7 +780,7 @@ func editorFind() {
 	}
 }
 
-/*** input ***/
+// input
 
 func editorPrompt(prompt string, callback func([]byte, int)) string {
 	var buf []byte
@@ -919,7 +919,7 @@ func editorProcessKeypress() (outOfProgram bool) {
 	return
 }
 
-/*** output ***/
+// output
 
 func editorScroll() {
 	E.rx = 0
@@ -1074,7 +1074,7 @@ func editorSetStatusMessage(args ...interface{}) {
 	E.statusmsg_time = time.Now()
 }
 
-/*** init ***/
+// init
 
 func main() {
 	//  enable raw mode
