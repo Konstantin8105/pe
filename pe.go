@@ -693,7 +693,7 @@ func editorSave() {
 			E.dirty = false
 			editorSetStatusMessage("%d bytes written to disk", len)
 		} else {
-			editorSetStatusMessage(fmt.Sprintf("wanted to write %d bytes to file, wrote %d", len, n))
+			editorSetStatusMessage("wanted to write %d bytes to file, wrote %d", len, n)
 		}
 		return
 	}
@@ -1063,8 +1063,8 @@ func editorDrawMessageBar(ab *bytes.Buffer) {
 	}
 }
 
-func editorSetStatusMessage(args ...interface{}) {
-	E.statusmsg = fmt.Sprintf(args[0].(string), args[1:]...)
+func editorSetStatusMessage(format string, a ...interface{}) {
+	E.statusmsg = fmt.Sprintf(format, a)
 	E.statusmsg_time = time.Now()
 }
 
@@ -1085,7 +1085,8 @@ func main() {
 		log.Fatalf("Problem enabling raw mode: %s\n", e)
 	}
 
-	defer func() { // disable raw mode
+	defer func() {
+		// disable raw mode
 		if e := TcSetAttr(os.Stdin.Fd(), origTermios); e != nil {
 			log.Fatalf("Problem disabling raw mode: %s\n", e)
 		}
