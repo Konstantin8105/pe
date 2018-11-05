@@ -35,5 +35,8 @@ func TestEditor(t *testing.T) {
 	}
 
 	termOut = f
-	run()
+	err = run()
+	if err != nil {
+		t.Fatal(err)
+	}
 }

@@ -1097,19 +1097,26 @@ func main() {
 		}
 	}()
 
-	run()
+	err := run()
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
-func initEditor() {
+func initEditor() error {
 	// Initialization a la C not necessary.
 	if term.getWindowSize(&E.screenRows, &E.screenCols) == -1 {
-		die(fmt.Errorf("couldn't get screen size"))
+		return fmt.Errorf("couldn't get screen size")
 	}
 	E.screenRows -= 2
+	return nil
 }
 
-func run() {
-	initEditor()
+func run() error {
+	err := initEditor()
+	if err != nil {
+		return fmt.Errorf("Cannot initialize editor: %v", err)
+	}
 	// if len(os.Args) > 1 {
 	// 	editorOpen(os.Args[1])
 	// }
@@ -1123,4 +1130,5 @@ func run() {
 			break
 		}
 	}
+	return nil
 }
