@@ -671,9 +671,12 @@ func editorOpen(filename string) {
 	E.dirty = false
 }
 
-func editorSave() {
+func editorSave() (err error) {
 	if E.filename == "" {
-		E.filename = editorPrompt("Save as: %q", nil)
+		E.filename, err = editorPrompt("Save as: %q", nil)
+		if err != nil {
+			return fmt.Errorf("Cannot save : %v", err)
+		}
 		if E.filename == "" {
 			editorSetStatusMessage("Save aborted")
 			return
@@ -698,6 +701,7 @@ func editorSave() {
 		return
 	}
 	editorSetStatusMessage("Can't save! I/O error %s", err)
+	return nil
 }
 
 // find
@@ -759,29 +763,34 @@ func editorFindCallback(qry []byte, key int) {
 	}
 }
 
-func editorFind() {
+func editorFind() error {
 	savedCx := E.cx
 	savedCy := E.cy
 	savedColoff := E.coloff
 	savedRowoff := E.rowoff
-	query := editorPrompt("Search: %s (ESC/Arrows/Enter)",
-		editorFindCallback)
+	query, err := editorPrompt("Search: %s (ESC/Arrows/Enter)", editorFindCallback)
+	if err != nil {
+		return fmt.Errorf("Find error: %v", err)
+	}
 	if query == "" {
 		E.cx = savedCx
 		E.cy = savedCy
 		E.coloff = savedColoff
 		E.rowoff = savedRowoff
 	}
+	return nil
 }
 
 // input
 
-func editorPrompt(prompt string, callback func([]byte, int)) string {
+func editorPrompt(prompt string, callback func([]byte, int)) (string, error) {
 	var buf []byte
 
 	for {
 		editorSetStatusMessage(prompt, buf)
-		editorRefreshScreen()
+		if err := editorRefreshScreen(); err != nil {
+			return "", err
+		}
 
 		c := term.editorReadKey()
 
@@ -794,14 +803,14 @@ func editorPrompt(prompt string, callback func([]byte, int)) string {
 			if callback != nil {
 				callback(buf, c)
 			}
-			return ""
+			return "", nil
 		} else if c == '\r' {
 			if len(buf) != 0 {
 				editorSetStatusMessage("")
 				if callback != nil {
 					callback(buf, c)
 				}
-				return string(buf)
+				return string(buf), nil
 			}
 		} else {
 			if unicode.IsPrint(rune(c)) {
@@ -936,7 +945,7 @@ func editorScroll() {
 	}
 }
 
-func editorRefreshScreen() {
+func editorRefreshScreen() error {
 	editorScroll()
 	ab := bytes.NewBufferString("\x1b[25l")
 	ab.WriteString("\x1b[H")
@@ -945,10 +954,11 @@ func editorRefreshScreen() {
 	editorDrawMessageBar(ab)
 	ab.WriteString(fmt.Sprintf("\x1b[%d;%dH", (E.cy-E.rowoff)+1, (E.rx-E.coloff)+1))
 	ab.WriteString("\x1b[?25h")
-	_, e := ab.WriteTo(termOut)
-	if e != nil {
-		log.Fatal(e)
+	_, err := ab.WriteTo(termOut)
+	if err != nil {
+		return fmt.Errorf("Cannot refresh screen : %v", err)
 	}
+	return nil
 }
 
 func editorDrawRows(ab *bytes.Buffer) {
@@ -1064,7 +1074,7 @@ func editorDrawMessageBar(ab *bytes.Buffer) {
 }
 
 func editorSetStatusMessage(format string, a ...interface{}) {
-	E.statusmsg = fmt.Sprintf(format, a)
+	E.statusmsg = fmt.Sprintf(format, a...)
 	E.statusmsg_time = time.Now()
 }
 
@@ -1119,7 +1129,9 @@ func run() error {
 	editorSetStatusMessage("HELP: Ctrl-S = save | Ctrl-Q = quit | Ctrl-F = find")
 
 	for {
-		editorRefreshScreen()
+		if err := editorRefreshScreen(); err != nil {
+			return err
+		}
 		if editorProcessKeypress() {
 			// if enable close key
 			break
