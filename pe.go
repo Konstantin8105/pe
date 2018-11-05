@@ -1119,6 +1119,7 @@ func run() {
 	for {
 		editorRefreshScreen()
 		if editorProcessKeypress() {
+			// if enable close key
 			break
 		}
 	}
