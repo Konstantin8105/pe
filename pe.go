@@ -176,7 +176,6 @@ const (
 // data
 
 type erow struct {
-	idx    int
 	size   int
 	rsize  int
 	chars  []byte
@@ -306,7 +305,6 @@ func editorInsertRow(at int, s []byte) {
 	var r erow
 	r.chars = s
 	r.size = len(s)
-	r.idx = at
 
 	if at == 0 {
 		t := make([]erow, 1)
@@ -320,10 +318,6 @@ func editorInsertRow(at int, s []byte) {
 		E.rows = append(E.rows[:at], append(t, E.rows[at:]...)...)
 	}
 
-	for j := at + 1; j < len(E.rows); j++ {
-		E.rows[j].idx++
-	}
-
 	editorUpdateRow(&E.rows[at])
 	E.dirty = true
 }
@@ -334,9 +328,6 @@ func editorDelRow(at int) {
 	}
 	E.rows = append(E.rows[:at], E.rows[at+1:]...)
 	E.dirty = true
-	for j := at; j < len(E.rows); j++ {
-		E.rows[j].idx--
-	}
 }
 
 func editorRowInsertChar(row *erow, at int, c byte) {
