@@ -205,7 +205,6 @@ var E editorConfig
 // terminal
 
 func die(err error) {
-	// term.disableRawMode()
 	io.WriteString(termOut, "\x1b[2J")
 	io.WriteString(termOut, "\x1b[H")
 	log.Fatal(err)
