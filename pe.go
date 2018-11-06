@@ -197,13 +197,13 @@ const (
 // }
 
 type erow struct {
-	idx           int
-	size          int
-	rsize         int
-	chars         []byte
-	render        []byte
-	hl            []byte
-	hlOpenComment bool
+	idx    int
+	size   int
+	rsize  int
+	chars  []byte
+	render []byte
+	hl     []byte
+	// hlOpenComment bool
 }
 
 type editorConfig struct {
