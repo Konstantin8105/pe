@@ -158,16 +158,16 @@ const KILO_VERSION = "0.0.1"
 const KILO_TAB_STOP = 8
 const KILO_QUIT_TIMES = 3
 const (
-	BACKSPACE   = 127
-	ARROW_LEFT  = 1000 + iota
-	ARROW_RIGHT = 1000 + iota
-	ARROW_UP    = 1000 + iota
-	ARROW_DOWN  = 1000 + iota
-	DEL_KEY     = 1000 + iota
-	HOME_KEY    = 1000 + iota
-	END_KEY     = 1000 + iota
-	PAGE_UP     = 1000 + iota
-	PAGE_DOWN   = 1000 + iota
+	BACKSPACE  = 127
+	ARROW_LEFT = 1000 + iota
+	ARROW_RIGHT
+	ARROW_UP
+	ARROW_DOWN
+	DEL_KEY
+	HOME_KEY
+	END_KEY
+	PAGE_UP
+	PAGE_DOWN
 )
 
 const (
