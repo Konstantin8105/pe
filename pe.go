@@ -501,79 +501,6 @@ func editorSave() (err error) {
 	return nil
 }
 
-// find
-
-var lastMatch int = -1
-var direction int = 1
-var savedHlLine int
-var savedHl []byte
-
-func editorFindCallback(qry []byte, key int) {
-
-	if savedHlLine > 0 {
-		copy(E.rows[savedHlLine].hl, savedHl)
-		savedHlLine = 0
-		savedHl = nil
-	}
-
-	if key == '\r' || key == '\x1b' {
-		lastMatch = -1
-		direction = 1
-		return
-	} else if key == ARROW_RIGHT || key == ARROW_DOWN {
-		direction = 1
-	} else if key == ARROW_LEFT || key == ARROW_UP {
-		direction = -1
-	} else {
-		lastMatch = -1
-		direction = 1
-	}
-
-	if lastMatch == -1 {
-		direction = 1
-	}
-	current := lastMatch
-
-	for range E.rows {
-		current += direction
-		if current == -1 {
-			current = len(E.rows) - 1
-		} else if current == len(E.rows) {
-			current = 0
-		}
-		row := &E.rows[current]
-		x := bytes.Index(row.render, qry)
-		if x > -1 {
-			lastMatch = current
-			E.cursor.y = current
-			E.cursor.x = editorRowRxToCx(row, x)
-			E.offset.row = len(E.rows)
-			savedHlLine = current
-			savedHl = make([]byte, row.rsize)
-			copy(savedHl, row.hl)
-			max := x + len(qry)
-			for i := x; i < max; i++ {
-				row.hl[i] = HL_MATCH
-			}
-			break
-		}
-	}
-}
-
-func editorFind() error {
-	savedCx, savedCy := E.cursor.x, E.cursor.y
-	savedColoff, savedRowoff := E.offset.col, E.offset.row
-	query, err := editorPrompt("Search: %s (ESC/Arrows/Enter)", editorFindCallback)
-	if err != nil {
-		return fmt.Errorf("Find error: %v", err)
-	}
-	if query == "" {
-		E.cursor.x, E.cursor.y = savedCx, savedCy
-		E.offset.col, E.offset.row = savedColoff, savedRowoff
-	}
-	return nil
-}
-
 // input
 
 func editorPrompt(prompt string, callback func([]byte, int)) (string, error) {
@@ -680,8 +607,6 @@ func editorProcessKeypress() (outOfProgram bool) {
 		if E.cursor.y < len(E.rows) {
 			E.cursor.x = E.rows[E.cursor.y].size
 		}
-	case ('f' & 0x1f):
-		editorFind()
 	case ('h' & 0x1f), BACKSPACE, DEL_KEY:
 		if c == DEL_KEY {
 			editorMoveCursor(ARROW_RIGHT)
@@ -745,8 +670,7 @@ func editorRefreshScreen() error {
 	editorDrawMessageBar(ab)
 	ab.WriteString(fmt.Sprintf("\x1b[%d;%dH", (E.cursor.y-E.offset.row)+1, (E.rx-E.offset.col)+1))
 	ab.WriteString("\x1b[?25h")
-	_, err := ab.WriteTo(termOut)
-	if err != nil {
+	if _, err := ab.WriteTo(termOut); err != nil {
 		return fmt.Errorf("Cannot refresh screen : %v", err)
 	}
 	return nil
