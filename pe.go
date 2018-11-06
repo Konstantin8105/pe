@@ -235,11 +235,6 @@ func TcGetAttr(fd uintptr) *syscall.Termios {
 	return termios
 }
 
-func editorUpdateSyntax(row *erow) {
-	row.hl = make([]byte, row.rsize)
-	return
-}
-
 func editorSyntaxToColor(hl byte) int {
 	switch hl {
 	case HL_MATCH:
@@ -301,7 +296,7 @@ func editorUpdateRow(row *erow) {
 		}
 	}
 	row.rsize = idx
-	editorUpdateSyntax(row)
+	row.hl = make([]byte, row.rsize)
 }
 
 func editorInsertRow(at int, s []byte) {
