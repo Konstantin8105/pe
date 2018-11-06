@@ -17,10 +17,8 @@ func (m *Mock) editorReadKey() int {
 	return m.line[m.pos]
 }
 
-func (Mock) getWindowSize(rows *int, cols *int) int {
-	r, c := 100, 100
-	rows, cols = &r, &c
-	return 0
+func (Mock) getWindowSize() (rows, cols int, err error) {
+	return 100, 100, nil
 }
 
 func TestEditor(t *testing.T) {

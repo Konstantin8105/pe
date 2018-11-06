@@ -18,7 +18,7 @@ import (
 
 type Terminal interface {
 	editorReadKey() int
-	getWindowSize(rows *int, cols *int) int
+	getWindowSize() (rows, cols int, err error)
 }
 
 var termOut *os.File = os.Stdout
@@ -26,16 +26,16 @@ var term Terminal = Console{}
 
 type Console struct{}
 
-func (c Console) getWindowSize(rows *int, cols *int) int {
+func (c Console) getWindowSize() (rows, cols int, err error) {
 	w := struct {
 		Row, Col       uint16
 		Xpixel, Ypixel uint16
 	}{}
-	if _, _, err := syscall.Syscall(syscall.SYS_IOCTL,
+	if _, _, e := syscall.Syscall(syscall.SYS_IOCTL,
 		termOut.Fd(),
 		syscall.TIOCGWINSZ,
 		uintptr(unsafe.Pointer(&w)),
-	); err != 0 { // type syscall.Errno
+	); e != 0 { // type syscall.Errno
 		// ioctl() isn’t guaranteed to be able to request the window size on all systems.
 		// The strategy is to position the cursor at the bottom-right of the
 		// screen, then use escape sequences that let us query the position
@@ -53,24 +53,18 @@ func (c Console) getWindowSize(rows *int, cols *int) int {
 			buf = append(buf, buffer[0])
 		}
 		if string(buf[0:2]) != "\x1b[" {
-			log.Printf("Failed to read rows;cols from tty\n")
-			return -1
+			return 0, 0, fmt.Errorf("Failed to read rows;cols from tty\n")
 		}
-		if n, e := fmt.Sscanf(string(buf[2:]), "%d;%d", rows, cols); n != 2 || e != nil {
-			if e != nil {
-				log.Printf("getCursorPosition: fmt.Sscanf() failed: %s\n", e)
-			}
-			if n != 2 {
-				log.Printf("getCursorPosition: got %d items, wanted 2\n", n)
-			}
-			return -1
+		n, e := fmt.Sscanf(string(buf[2:]), "%d;%d", &rows, &cols)
+		if e != nil {
+			return 0, 0, fmt.Errorf("getCursorPosition: fmt.Sscanf() failed: %s\n", e)
 		}
-		return 0
+		if n != 2 {
+			return 0, 0, fmt.Errorf("getCursorPosition: got %d items, wanted 2\n", n)
+		}
+		return
 	}
-
-	*rows = int(w.Row)
-	*cols = int(w.Col)
-	return 0
+	return int(w.Row), int(w.Col), nil
 }
 
 func (c Console) editorReadKey() (key int) {
@@ -1105,10 +1099,10 @@ func main() {
 	}
 }
 
-func initEditor() error {
+func initEditor() (err error) {
 	// Initialization a la C not necessary.
-	if term.getWindowSize(&E.screenRows, &E.screenCols) == -1 {
-		return fmt.Errorf("couldn't get screen size")
+	if E.screenRows, E.screenCols, err = term.getWindowSize(); err != nil {
+		return fmt.Errorf("couldn't get screen size: %v", err)
 	}
 	E.screenRows -= 2
 	return nil
