@@ -278,14 +278,14 @@ func TcGetAttr(fd uintptr) *syscall.Termios {
 }
 
 // syntax hightlighting
-var separators []byte = []byte(",.()+-/*=~%<>[]; \t\n\r")
-
-func isSeparator(c byte) bool {
-	if bytes.IndexByte(separators, c) >= 0 {
-		return true
-	}
-	return false
-}
+// var separators []byte = []byte(",.()+-/*=~%<>[]; \t\n\r")
+//
+// func isSeparator(c byte) bool {
+// 	if bytes.IndexByte(separators, c) >= 0 {
+// 		return true
+// 	}
+// 	return false
+// }
 
 func editorUpdateSyntax(row *erow) {
 	row.hl = make([]byte, row.rsize)
