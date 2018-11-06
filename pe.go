@@ -903,11 +903,9 @@ func editorProcessKeypress() (outOfProgram bool) {
 
 func editorScroll() {
 	E.rx = 0
-
 	if E.cursor.y < len(E.rows) {
 		E.rx = editorRowCxToRx(&(E.rows[E.cursor.y]), E.cursor.x)
 	}
-
 	if E.cursor.y < E.offset.row {
 		E.offset.row = E.cursor.y
 	}
