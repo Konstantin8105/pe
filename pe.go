@@ -41,12 +41,10 @@ func (c Console) getWindowSize() (rows, cols int, err error) {
 		// screen, then use escape sequences that let us query the position
 		// of the cursor. That tells us how many rows and columns there must be
 		// on the screen.
-		io.WriteString(termOut, "\x1b[999C\x1b[999B")
-		io.WriteString(termOut, "\x1b[6n")
+		io.WriteString(termOut, "\x1b[999C\x1b[999B\x1b[6n")
 		var buffer [1]byte
 		var buf []byte
-		var cc int
-		for cc, _ = os.Stdin.Read(buffer[:]); cc == 1; cc, _ = os.Stdin.Read(buffer[:]) {
+		for cc, _ := os.Stdin.Read(buffer[:]); cc == 1; cc, _ = os.Stdin.Read(buffer[:]) {
 			if buffer[0] == 'R' {
 				break
 			}
