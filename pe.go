@@ -216,11 +216,13 @@ type erow struct {
 }
 
 type editorConfig struct {
-	cx             int
-	cy             int
-	rx             int
-	rowoff         int
-	coloff         int
+	cx     int
+	cy     int
+	rx     int
+	offset struct {
+		row int
+		col int
+	}
 	screenRows     int
 	screenCols     int
 	numRows        int
@@ -742,7 +744,7 @@ func editorFindCallback(qry []byte, key int) {
 			lastMatch = current
 			E.cy = current
 			E.cx = editorRowRxToCx(row, x)
-			E.rowoff = E.numRows
+			E.offset.row = E.numRows
 			savedHlLine = current
 			savedHl = make([]byte, row.rsize)
 			copy(savedHl, row.hl)
@@ -757,14 +759,14 @@ func editorFindCallback(qry []byte, key int) {
 
 func editorFind() error {
 	savedCx, savedCy := E.cx, E.cy
-	savedColoff, savedRowoff := E.coloff, E.rowoff
+	savedColoff, savedRowoff := E.offset.col, E.offset.row
 	query, err := editorPrompt("Search: %s (ESC/Arrows/Enter)", editorFindCallback)
 	if err != nil {
 		return fmt.Errorf("Find error: %v", err)
 	}
 	if query == "" {
 		E.cx, E.cy = savedCx, savedCy
-		E.coloff, E.rowoff = savedColoff, savedRowoff
+		E.offset.col, E.offset.row = savedColoff, savedRowoff
 	}
 	return nil
 }
@@ -887,10 +889,10 @@ func editorProcessKeypress() (outOfProgram bool) {
 	case PAGE_UP, PAGE_DOWN:
 		dir := ARROW_DOWN
 		if c == PAGE_UP {
-			E.cy = E.rowoff
+			E.cy = E.offset.row
 			dir = ARROW_UP
 		} else {
-			E.cy = E.rowoff + E.screenRows - 1
+			E.cy = E.offset.row + E.screenRows - 1
 			if E.cy > E.numRows {
 				E.cy = E.numRows
 			}
@@ -920,17 +922,17 @@ func editorScroll() {
 		E.rx = editorRowCxToRx(&(E.rows[E.cy]), E.cx)
 	}
 
-	if E.cy < E.rowoff {
-		E.rowoff = E.cy
+	if E.cy < E.offset.row {
+		E.offset.row = E.cy
 	}
-	if E.cy >= E.rowoff+E.screenRows {
-		E.rowoff = E.cy - E.screenRows + 1
+	if E.cy >= E.offset.row+E.screenRows {
+		E.offset.row = E.cy - E.screenRows + 1
 	}
-	if E.rx < E.coloff {
-		E.coloff = E.rx
+	if E.rx < E.offset.col {
+		E.offset.col = E.rx
 	}
-	if E.rx >= E.coloff+E.screenCols {
-		E.coloff = E.rx - E.screenCols + 1
+	if E.rx >= E.offset.col+E.screenCols {
+		E.offset.col = E.rx - E.screenCols + 1
 	}
 }
 
@@ -941,7 +943,7 @@ func editorRefreshScreen() error {
 	editorDrawRows(ab)
 	editorDrawStatusBar(ab)
 	editorDrawMessageBar(ab)
-	ab.WriteString(fmt.Sprintf("\x1b[%d;%dH", (E.cy-E.rowoff)+1, (E.rx-E.coloff)+1))
+	ab.WriteString(fmt.Sprintf("\x1b[%d;%dH", (E.cy-E.offset.row)+1, (E.rx-E.offset.col)+1))
 	ab.WriteString("\x1b[?25h")
 	_, err := ab.WriteTo(termOut)
 	if err != nil {
@@ -952,7 +954,7 @@ func editorRefreshScreen() error {
 
 func editorDrawRows(ab *bytes.Buffer) {
 	for y := 0; y < E.screenRows; y++ {
-		filerow := y + E.rowoff
+		filerow := y + E.offset.row
 		if filerow >= E.numRows {
 			if E.numRows == 0 && y == E.screenRows/3 {
 				w := fmt.Sprintf("Kilo editor -- version %s", KILO_VERSION)
@@ -969,7 +971,7 @@ func editorDrawRows(ab *bytes.Buffer) {
 				ab.WriteString("~")
 			}
 		} else {
-			len := E.rows[filerow].rsize - E.coloff
+			len := E.rows[filerow].rsize - E.offset.col
 			if len < 0 {
 				len = 0
 			}
@@ -977,10 +979,10 @@ func editorDrawRows(ab *bytes.Buffer) {
 				if len > E.screenCols {
 					len = E.screenCols
 				}
-				rindex := E.coloff + len
-				hl := E.rows[filerow].hl[E.coloff:rindex]
+				rindex := E.offset.col + len
+				hl := E.rows[filerow].hl[E.offset.col:rindex]
 				currentColor := -1
-				for j, c := range E.rows[filerow].render[E.coloff:rindex] {
+				for j, c := range E.rows[filerow].render[E.offset.col:rindex] {
 					if unicode.IsControl(rune(c)) {
 						ab.WriteString("\x1b[7m")
 						if c < 26 {
