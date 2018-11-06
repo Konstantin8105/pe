@@ -248,12 +248,6 @@ func editorSyntaxToColor(hl byte) int {
 	return 37
 }
 
-func editorSelectSyntaxHighlight() {
-	if E.filename == "" {
-		return
-	}
-}
-
 // row operations
 
 func editorRowCxToRx(row *erow, cx int) int {
@@ -442,7 +436,6 @@ func editorRowsToString() (string, int) {
 
 func editorOpen(filename string) {
 	E.filename = filename
-	editorSelectSyntaxHighlight()
 	fd, err := os.Open(filename)
 	if err != nil {
 		die(err)
@@ -477,7 +470,6 @@ func editorSave() (err error) {
 			editorSetStatusMessage("Save aborted")
 			return
 		}
-		editorSelectSyntaxHighlight()
 	}
 	buf, len := editorRowsToString()
 	fp, e := os.OpenFile(E.filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
