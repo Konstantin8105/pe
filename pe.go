@@ -153,7 +153,7 @@ func (c Console) editorReadKey() (outKey int) {
 
 // defines
 
-const KILO_TAB_STOP = 8
+const KILO_TAB_STOP = 4
 const KILO_QUIT_TIMES = 3
 const (
 	BACKSPACE  = 127
@@ -693,7 +693,8 @@ func editorDrawRows(ab *bytes.Buffer) {
 				hl := E.rows[filerow].hl[E.offset.col:rindex]
 				currentColor := -1
 				for j, c := range E.rows[filerow].render[E.offset.col:rindex] {
-					if unicode.IsControl(rune(c)) {
+					switch {
+					case unicode.IsControl(rune(c)):
 						ab.WriteString("\x1b[7m")
 						if c < 26 {
 							ab.WriteString("@")
@@ -704,13 +705,13 @@ func editorDrawRows(ab *bytes.Buffer) {
 						if currentColor != -1 {
 							ab.WriteString(fmt.Sprintf("\x1b[%dm", currentColor))
 						}
-					} else if hl[j] == HL_NORMAL {
+					case hl[j] == HL_NORMAL:
 						if currentColor != -1 {
 							ab.WriteString("\x1b[39m")
 							currentColor = -1
 						}
 						ab.WriteByte(c)
-					} else {
+					default:
 						color := editorSyntaxToColor(hl[j])
 						if color != currentColor {
 							currentColor = color
