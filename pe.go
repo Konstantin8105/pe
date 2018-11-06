@@ -943,20 +943,7 @@ func editorDrawRows(ab *bytes.Buffer) {
 	for y := 0; y < E.screen.rows; y++ {
 		filerow := y + E.offset.row
 		if filerow >= len(E.rows) {
-			if len(E.rows) == 0 && y == E.screen.rows/3 {
-				w := fmt.Sprintf("Kilo editor -- version %s", KILO_VERSION)
-				if len(w) > E.screen.cols {
-					w = w[0:E.screen.cols]
-				}
-				pad := "~ "
-				for padding := (E.screen.cols - len(w)) / 2; padding > 0; padding-- {
-					ab.WriteString(pad)
-					pad = " "
-				}
-				ab.WriteString(w)
-			} else {
-				ab.WriteString("~")
-			}
+			ab.WriteString("~")
 		} else {
 			len := E.rows[filerow].rsize - E.offset.col
 			if len < 0 {
