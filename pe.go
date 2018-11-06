@@ -209,8 +209,7 @@ type erow struct {
 }
 
 type editorConfig struct {
-	cx       int
-	cy       int
+	cursor   struct{ x, y int }
 	rx       int
 	offset   struct{ row, col int }
 	screen   struct{ rows, cols int }
@@ -575,42 +574,42 @@ func editorRowDelChar(row *erow, at int) {
 // editor operations
 
 func editorInsertChar(c byte) {
-	if E.cy == len(E.rows) {
+	if E.cursor.y == len(E.rows) {
 		var emptyRow []byte
 		editorInsertRow(len(E.rows), emptyRow)
 	}
-	editorRowInsertChar(&E.rows[E.cy], E.cx, c)
-	E.cx++
+	editorRowInsertChar(&E.rows[E.cursor.y], E.cursor.x, c)
+	E.cursor.x++
 }
 
 func editorInsertNewLine() {
-	if E.cx == 0 {
-		editorInsertRow(E.cy, make([]byte, 0))
+	if E.cursor.x == 0 {
+		editorInsertRow(E.cursor.y, make([]byte, 0))
 	} else {
-		editorInsertRow(E.cy+1, E.rows[E.cy].chars[E.cx:])
-		E.rows[E.cy].chars = E.rows[E.cy].chars[:E.cx]
-		E.rows[E.cy].size = len(E.rows[E.cy].chars)
-		editorUpdateRow(&E.rows[E.cy])
+		editorInsertRow(E.cursor.y+1, E.rows[E.cursor.y].chars[E.cursor.x:])
+		E.rows[E.cursor.y].chars = E.rows[E.cursor.y].chars[:E.cursor.x]
+		E.rows[E.cursor.y].size = len(E.rows[E.cursor.y].chars)
+		editorUpdateRow(&E.rows[E.cursor.y])
 	}
-	E.cy++
-	E.cx = 0
+	E.cursor.y++
+	E.cursor.x = 0
 }
 
 func editorDelChar() {
-	if E.cy == len(E.rows) {
+	if E.cursor.y == len(E.rows) {
 		return
 	}
-	if E.cx == 0 && E.cy == 0 {
+	if E.cursor.x == 0 && E.cursor.y == 0 {
 		return
 	}
-	if E.cx > 0 {
-		editorRowDelChar(&E.rows[E.cy], E.cx-1)
-		E.cx--
+	if E.cursor.x > 0 {
+		editorRowDelChar(&E.rows[E.cursor.y], E.cursor.x-1)
+		E.cursor.x--
 	} else {
-		E.cx = E.rows[E.cy-1].size
-		editorRowAppendString(&E.rows[E.cy-1], E.rows[E.cy].chars)
-		editorDelRow(E.cy)
-		E.cy--
+		E.cursor.x = E.rows[E.cursor.y-1].size
+		editorRowAppendString(&E.rows[E.cursor.y-1], E.rows[E.cursor.y].chars)
+		editorDelRow(E.cursor.y)
+		E.cursor.y--
 	}
 }
 
@@ -730,8 +729,8 @@ func editorFindCallback(qry []byte, key int) {
 		x := bytes.Index(row.render, qry)
 		if x > -1 {
 			lastMatch = current
-			E.cy = current
-			E.cx = editorRowRxToCx(row, x)
+			E.cursor.y = current
+			E.cursor.x = editorRowRxToCx(row, x)
 			E.offset.row = len(E.rows)
 			savedHlLine = current
 			savedHl = make([]byte, row.rsize)
@@ -746,14 +745,14 @@ func editorFindCallback(qry []byte, key int) {
 }
 
 func editorFind() error {
-	savedCx, savedCy := E.cx, E.cy
+	savedCx, savedCy := E.cursor.x, E.cursor.y
 	savedColoff, savedRowoff := E.offset.col, E.offset.row
 	query, err := editorPrompt("Search: %s (ESC/Arrows/Enter)", editorFindCallback)
 	if err != nil {
 		return fmt.Errorf("Find error: %v", err)
 	}
 	if query == "" {
-		E.cx, E.cy = savedCx, savedCy
+		E.cursor.x, E.cursor.y = savedCx, savedCy
 		E.offset.col, E.offset.row = savedColoff, savedRowoff
 	}
 	return nil
@@ -805,37 +804,37 @@ func editorPrompt(prompt string, callback func([]byte, int)) (string, error) {
 func editorMoveCursor(key int) {
 	switch key {
 	case ARROW_LEFT:
-		if E.cx != 0 {
-			E.cx--
-		} else if E.cy > 0 {
-			E.cy--
-			E.cx = E.rows[E.cy].size
+		if E.cursor.x != 0 {
+			E.cursor.x--
+		} else if E.cursor.y > 0 {
+			E.cursor.y--
+			E.cursor.x = E.rows[E.cursor.y].size
 		}
 	case ARROW_RIGHT:
-		if E.cy < len(E.rows) {
-			if E.cx < E.rows[E.cy].size {
-				E.cx++
-			} else if E.cx == E.rows[E.cy].size {
-				E.cy++
-				E.cx = 0
+		if E.cursor.y < len(E.rows) {
+			if E.cursor.x < E.rows[E.cursor.y].size {
+				E.cursor.x++
+			} else if E.cursor.x == E.rows[E.cursor.y].size {
+				E.cursor.y++
+				E.cursor.x = 0
 			}
 		}
 	case ARROW_UP:
-		if E.cy != 0 {
-			E.cy--
+		if E.cursor.y != 0 {
+			E.cursor.y--
 		}
 	case ARROW_DOWN:
-		if E.cy < len(E.rows) {
-			E.cy++
+		if E.cursor.y < len(E.rows) {
+			E.cursor.y++
 		}
 	}
 
 	rowlen := 0
-	if E.cy < len(E.rows) {
-		rowlen = E.rows[E.cy].size
+	if E.cursor.y < len(E.rows) {
+		rowlen = E.rows[E.cursor.y].size
 	}
-	if E.cx > rowlen {
-		E.cx = rowlen
+	if E.cursor.x > rowlen {
+		E.cursor.x = rowlen
 	}
 }
 
@@ -861,10 +860,10 @@ func editorProcessKeypress() (outOfProgram bool) {
 	case ('s' & 0x1f):
 		editorSave()
 	case HOME_KEY:
-		E.cx = 0
+		E.cursor.x = 0
 	case END_KEY:
-		if E.cy < len(E.rows) {
-			E.cx = E.rows[E.cy].size
+		if E.cursor.y < len(E.rows) {
+			E.cursor.x = E.rows[E.cursor.y].size
 		}
 	case ('f' & 0x1f):
 		editorFind()
@@ -877,12 +876,12 @@ func editorProcessKeypress() (outOfProgram bool) {
 	case PAGE_UP, PAGE_DOWN:
 		dir := ARROW_DOWN
 		if c == PAGE_UP {
-			E.cy = E.offset.row
+			E.cursor.y = E.offset.row
 			dir = ARROW_UP
 		} else {
-			E.cy = E.offset.row + E.screen.rows - 1
-			if E.cy > len(E.rows) {
-				E.cy = len(E.rows)
+			E.cursor.y = E.offset.row + E.screen.rows - 1
+			if E.cursor.y > len(E.rows) {
+				E.cursor.y = len(E.rows)
 			}
 		}
 		for times := E.screen.rows; times > 0; times-- {
@@ -906,15 +905,15 @@ func editorProcessKeypress() (outOfProgram bool) {
 func editorScroll() {
 	E.rx = 0
 
-	if E.cy < len(E.rows) {
-		E.rx = editorRowCxToRx(&(E.rows[E.cy]), E.cx)
+	if E.cursor.y < len(E.rows) {
+		E.rx = editorRowCxToRx(&(E.rows[E.cursor.y]), E.cursor.x)
 	}
 
-	if E.cy < E.offset.row {
-		E.offset.row = E.cy
+	if E.cursor.y < E.offset.row {
+		E.offset.row = E.cursor.y
 	}
-	if E.cy >= E.offset.row+E.screen.rows {
-		E.offset.row = E.cy - E.screen.rows + 1
+	if E.cursor.y >= E.offset.row+E.screen.rows {
+		E.offset.row = E.cursor.y - E.screen.rows + 1
 	}
 	if E.rx < E.offset.col {
 		E.offset.col = E.rx
@@ -931,7 +930,7 @@ func editorRefreshScreen() error {
 	editorDrawRows(ab)
 	editorDrawStatusBar(ab)
 	editorDrawMessageBar(ab)
-	ab.WriteString(fmt.Sprintf("\x1b[%d;%dH", (E.cy-E.offset.row)+1, (E.rx-E.offset.col)+1))
+	ab.WriteString(fmt.Sprintf("\x1b[%d;%dH", (E.cursor.y-E.offset.row)+1, (E.rx-E.offset.col)+1))
 	ab.WriteString("\x1b[?25h")
 	_, err := ab.WriteTo(termOut)
 	if err != nil {
@@ -1025,7 +1024,7 @@ func editorDrawStatusBar(ab *bytes.Buffer) {
 	if E.syntax != nil {
 		filetype = E.syntax.filetype
 	}
-	rstatus := fmt.Sprintf("%s | %d/%d", filetype, E.cy+1, len(E.rows))
+	rstatus := fmt.Sprintf("%s | %d/%d", filetype, E.cursor.y+1, len(E.rows))
 	rlen := len(rstatus)
 	ab.WriteString(status[:ln])
 	for ln < E.screen.cols {
