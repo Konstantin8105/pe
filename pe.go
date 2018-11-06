@@ -209,17 +209,19 @@ type erow struct {
 }
 
 type editorConfig struct {
-	cx             int
-	cy             int
-	rx             int
-	offset         struct{ row, col int }
-	screen         struct{ rows, cols int }
-	rows           []erow
-	dirty          bool
-	filename       string
-	statusmsg      string
-	statusmsg_time time.Time
-	syntax         *editorSyntax
+	cx       int
+	cy       int
+	rx       int
+	offset   struct{ row, col int }
+	screen   struct{ rows, cols int }
+	rows     []erow
+	dirty    bool
+	filename string
+	status   struct {
+		msg      string
+		msg_time time.Time
+	}
+	syntax *editorSyntax
 }
 
 var E editorConfig
@@ -1041,18 +1043,18 @@ func editorDrawStatusBar(ab *bytes.Buffer) {
 
 func editorDrawMessageBar(ab *bytes.Buffer) {
 	ab.WriteString("\x1b[K")
-	msglen := len(E.statusmsg)
+	msglen := len(E.status.msg)
 	if msglen > E.screen.cols {
 		msglen = E.screen.cols
 	}
-	if msglen > 0 && (time.Now().Sub(E.statusmsg_time) < 5*time.Second) {
-		ab.WriteString(E.statusmsg)
+	if msglen > 0 && (time.Now().Sub(E.status.msg_time) < 5*time.Second) {
+		ab.WriteString(E.status.msg)
 	}
 }
 
 func editorSetStatusMessage(format string, a ...interface{}) {
-	E.statusmsg = fmt.Sprintf(format, a...)
-	E.statusmsg_time = time.Now()
+	E.status.msg = fmt.Sprintf(format, a...)
+	E.status.msg_time = time.Now()
 }
 
 // init
