@@ -209,15 +209,11 @@ type erow struct {
 }
 
 type editorConfig struct {
-	cx     int
-	cy     int
-	rx     int
-	offset struct {
-		row int
-		col int
-	}
-	screenRows     int
-	screenCols     int
+	cx             int
+	cy             int
+	rx             int
+	offset         struct{ row, col int }
+	screen         struct{ rows, cols int }
 	numRows        int
 	rows           []erow
 	dirty          bool
@@ -885,12 +881,12 @@ func editorProcessKeypress() (outOfProgram bool) {
 			E.cy = E.offset.row
 			dir = ARROW_UP
 		} else {
-			E.cy = E.offset.row + E.screenRows - 1
+			E.cy = E.offset.row + E.screen.rows - 1
 			if E.cy > E.numRows {
 				E.cy = E.numRows
 			}
 		}
-		for times := E.screenRows; times > 0; times-- {
+		for times := E.screen.rows; times > 0; times-- {
 			editorMoveCursor(dir)
 		}
 	case ARROW_UP, ARROW_DOWN, ARROW_LEFT, ARROW_RIGHT:
@@ -918,14 +914,14 @@ func editorScroll() {
 	if E.cy < E.offset.row {
 		E.offset.row = E.cy
 	}
-	if E.cy >= E.offset.row+E.screenRows {
-		E.offset.row = E.cy - E.screenRows + 1
+	if E.cy >= E.offset.row+E.screen.rows {
+		E.offset.row = E.cy - E.screen.rows + 1
 	}
 	if E.rx < E.offset.col {
 		E.offset.col = E.rx
 	}
-	if E.rx >= E.offset.col+E.screenCols {
-		E.offset.col = E.rx - E.screenCols + 1
+	if E.rx >= E.offset.col+E.screen.cols {
+		E.offset.col = E.rx - E.screen.cols + 1
 	}
 }
 
@@ -946,16 +942,16 @@ func editorRefreshScreen() error {
 }
 
 func editorDrawRows(ab *bytes.Buffer) {
-	for y := 0; y < E.screenRows; y++ {
+	for y := 0; y < E.screen.rows; y++ {
 		filerow := y + E.offset.row
 		if filerow >= E.numRows {
-			if E.numRows == 0 && y == E.screenRows/3 {
+			if E.numRows == 0 && y == E.screen.rows/3 {
 				w := fmt.Sprintf("Kilo editor -- version %s", KILO_VERSION)
-				if len(w) > E.screenCols {
-					w = w[0:E.screenCols]
+				if len(w) > E.screen.cols {
+					w = w[0:E.screen.cols]
 				}
 				pad := "~ "
-				for padding := (E.screenCols - len(w)) / 2; padding > 0; padding-- {
+				for padding := (E.screen.cols - len(w)) / 2; padding > 0; padding-- {
 					ab.WriteString(pad)
 					pad = " "
 				}
@@ -969,8 +965,8 @@ func editorDrawRows(ab *bytes.Buffer) {
 				len = 0
 			}
 			if len > 0 {
-				if len > E.screenCols {
-					len = E.screenCols
+				if len > E.screen.cols {
+					len = E.screen.cols
 				}
 				rindex := E.offset.col + len
 				hl := E.rows[filerow].hl[E.offset.col:rindex]
@@ -1023,8 +1019,8 @@ func editorDrawStatusBar(ab *bytes.Buffer) {
 	}
 	status := fmt.Sprintf("%.20s - %d lines %s", fname, E.numRows, modified)
 	ln := len(status)
-	if ln > E.screenCols {
-		ln = E.screenCols
+	if ln > E.screen.cols {
+		ln = E.screen.cols
 	}
 	filetype := "no ft"
 	if E.syntax != nil {
@@ -1033,8 +1029,8 @@ func editorDrawStatusBar(ab *bytes.Buffer) {
 	rstatus := fmt.Sprintf("%s | %d/%d", filetype, E.cy+1, E.numRows)
 	rlen := len(rstatus)
 	ab.WriteString(status[:ln])
-	for ln < E.screenCols {
-		if E.screenCols-ln == rlen {
+	for ln < E.screen.cols {
+		if E.screen.cols-ln == rlen {
 			ab.WriteString(rstatus)
 			break
 		} else {
@@ -1049,8 +1045,8 @@ func editorDrawStatusBar(ab *bytes.Buffer) {
 func editorDrawMessageBar(ab *bytes.Buffer) {
 	ab.WriteString("\x1b[K")
 	msglen := len(E.statusmsg)
-	if msglen > E.screenCols {
-		msglen = E.screenCols
+	if msglen > E.screen.cols {
+		msglen = E.screen.cols
 	}
 	if msglen > 0 && (time.Now().Sub(E.statusmsg_time) < 5*time.Second) {
 		ab.WriteString(E.statusmsg)
@@ -1130,10 +1126,10 @@ func main() {
 
 func initEditor() (err error) {
 	// Initialization a la C not necessary.
-	if E.screenRows, E.screenCols, err = term.getWindowSize(); err != nil {
+	if E.screen.rows, E.screen.cols, err = term.getWindowSize(); err != nil {
 		return fmt.Errorf("couldn't get screen size: %v", err)
 	}
-	E.screenRows -= 2
+	E.screen.rows -= 2
 	return nil
 }
 
