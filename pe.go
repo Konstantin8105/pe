@@ -866,7 +866,7 @@ func run() error {
 		editorOpen(E.filename)
 	}
 
-	editorSetStatusMessage("HELP: Ctrl-S = save | Ctrl-Q = quit | Ctrl-F = find")
+	editorSetStatusMessage("HELP: Ctrl-S = save | Ctrl-Q = quit")
 
 	for {
 		if err := editorRefreshScreen(); err != nil {
