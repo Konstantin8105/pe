@@ -154,7 +154,6 @@ func (c Console) editorReadKey() (outKey int) {
 
 // defines
 
-const KILO_VERSION = "0.0.1"
 const KILO_TAB_STOP = 8
 const KILO_QUIT_TIMES = 3
 const (
