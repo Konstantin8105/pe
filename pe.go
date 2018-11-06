@@ -214,7 +214,6 @@ type editorConfig struct {
 	rx             int
 	offset         struct{ row, col int }
 	screen         struct{ rows, cols int }
-	numRows        int
 	rows           []erow
 	dirty          bool
 	filename       string
@@ -401,7 +400,7 @@ func editorUpdateSyntax(row *erow) {
 
 	changed := row.hlOpenComment != inComment
 	row.hlOpenComment = inComment
-	if changed && row.idx+1 < E.numRows {
+	if changed && row.idx+1 < len(E.rows) {
 		editorUpdateSyntax(&E.rows[row.idx+1])
 	}
 }
@@ -496,7 +495,7 @@ func editorUpdateRow(row *erow) {
 }
 
 func editorInsertRow(at int, s []byte) {
-	if at < 0 || at > E.numRows {
+	if at < 0 || at > len(E.rows) {
 		return
 	}
 	var r erow
@@ -508,7 +507,7 @@ func editorInsertRow(at int, s []byte) {
 		t := make([]erow, 1)
 		t[0] = r
 		E.rows = append(t, E.rows...)
-	} else if at == E.numRows {
+	} else if at == len(E.rows) {
 		E.rows = append(E.rows, r)
 	} else {
 		t := make([]erow, 1)
@@ -516,23 +515,21 @@ func editorInsertRow(at int, s []byte) {
 		E.rows = append(E.rows[:at], append(t, E.rows[at:]...)...)
 	}
 
-	for j := at + 1; j <= E.numRows; j++ {
+	for j := at + 1; j < len(E.rows); j++ {
 		E.rows[j].idx++
 	}
 
 	editorUpdateRow(&E.rows[at])
-	E.numRows++
 	E.dirty = true
 }
 
 func editorDelRow(at int) {
-	if at < 0 || at > E.numRows {
+	if at < 0 || at > len(E.rows) {
 		return
 	}
 	E.rows = append(E.rows[:at], E.rows[at+1:]...)
-	E.numRows--
 	E.dirty = true
-	for j := at; j < E.numRows; j++ {
+	for j := at; j < len(E.rows); j++ {
 		E.rows[j].idx--
 	}
 }
@@ -576,9 +573,9 @@ func editorRowDelChar(row *erow, at int) {
 // editor operations
 
 func editorInsertChar(c byte) {
-	if E.cy == E.numRows {
+	if E.cy == len(E.rows) {
 		var emptyRow []byte
-		editorInsertRow(E.numRows, emptyRow)
+		editorInsertRow(len(E.rows), emptyRow)
 	}
 	editorRowInsertChar(&E.rows[E.cy], E.cx, c)
 	E.cx++
@@ -598,7 +595,7 @@ func editorInsertNewLine() {
 }
 
 func editorDelChar() {
-	if E.cy == E.numRows {
+	if E.cy == len(E.rows) {
 		return
 	}
 	if E.cx == 0 && E.cy == 0 {
@@ -645,7 +642,7 @@ func editorOpen(filename string) {
 				c = line[len(line)-1]
 			}
 		}
-		editorInsertRow(E.numRows, line)
+		editorInsertRow(len(E.rows), line)
 	}
 
 	if err != nil && err != io.EOF {
@@ -723,8 +720,8 @@ func editorFindCallback(qry []byte, key int) {
 	for range E.rows {
 		current += direction
 		if current == -1 {
-			current = E.numRows - 1
-		} else if current == E.numRows {
+			current = len(E.rows) - 1
+		} else if current == len(E.rows) {
 			current = 0
 		}
 		row := &E.rows[current]
@@ -733,7 +730,7 @@ func editorFindCallback(qry []byte, key int) {
 			lastMatch = current
 			E.cy = current
 			E.cx = editorRowRxToCx(row, x)
-			E.offset.row = E.numRows
+			E.offset.row = len(E.rows)
 			savedHlLine = current
 			savedHl = make([]byte, row.rsize)
 			copy(savedHl, row.hl)
@@ -813,7 +810,7 @@ func editorMoveCursor(key int) {
 			E.cx = E.rows[E.cy].size
 		}
 	case ARROW_RIGHT:
-		if E.cy < E.numRows {
+		if E.cy < len(E.rows) {
 			if E.cx < E.rows[E.cy].size {
 				E.cx++
 			} else if E.cx == E.rows[E.cy].size {
@@ -826,13 +823,13 @@ func editorMoveCursor(key int) {
 			E.cy--
 		}
 	case ARROW_DOWN:
-		if E.cy < E.numRows {
+		if E.cy < len(E.rows) {
 			E.cy++
 		}
 	}
 
 	rowlen := 0
-	if E.cy < E.numRows {
+	if E.cy < len(E.rows) {
 		rowlen = E.rows[E.cy].size
 	}
 	if E.cx > rowlen {
@@ -864,7 +861,7 @@ func editorProcessKeypress() (outOfProgram bool) {
 	case HOME_KEY:
 		E.cx = 0
 	case END_KEY:
-		if E.cy < E.numRows {
+		if E.cy < len(E.rows) {
 			E.cx = E.rows[E.cy].size
 		}
 	case ('f' & 0x1f):
@@ -882,8 +879,8 @@ func editorProcessKeypress() (outOfProgram bool) {
 			dir = ARROW_UP
 		} else {
 			E.cy = E.offset.row + E.screen.rows - 1
-			if E.cy > E.numRows {
-				E.cy = E.numRows
+			if E.cy > len(E.rows) {
+				E.cy = len(E.rows)
 			}
 		}
 		for times := E.screen.rows; times > 0; times-- {
@@ -907,7 +904,7 @@ func editorProcessKeypress() (outOfProgram bool) {
 func editorScroll() {
 	E.rx = 0
 
-	if E.cy < E.numRows {
+	if E.cy < len(E.rows) {
 		E.rx = editorRowCxToRx(&(E.rows[E.cy]), E.cx)
 	}
 
@@ -944,8 +941,8 @@ func editorRefreshScreen() error {
 func editorDrawRows(ab *bytes.Buffer) {
 	for y := 0; y < E.screen.rows; y++ {
 		filerow := y + E.offset.row
-		if filerow >= E.numRows {
-			if E.numRows == 0 && y == E.screen.rows/3 {
+		if filerow >= len(E.rows) {
+			if len(E.rows) == 0 && y == E.screen.rows/3 {
 				w := fmt.Sprintf("Kilo editor -- version %s", KILO_VERSION)
 				if len(w) > E.screen.cols {
 					w = w[0:E.screen.cols]
@@ -1017,7 +1014,7 @@ func editorDrawStatusBar(ab *bytes.Buffer) {
 	if E.dirty {
 		modified = "(modified)"
 	}
-	status := fmt.Sprintf("%.20s - %d lines %s", fname, E.numRows, modified)
+	status := fmt.Sprintf("%.20s - %d lines %s", fname, len(E.rows), modified)
 	ln := len(status)
 	if ln > E.screen.cols {
 		ln = E.screen.cols
@@ -1026,7 +1023,7 @@ func editorDrawStatusBar(ab *bytes.Buffer) {
 	if E.syntax != nil {
 		filetype = E.syntax.filetype
 	}
-	rstatus := fmt.Sprintf("%s | %d/%d", filetype, E.cy+1, E.numRows)
+	rstatus := fmt.Sprintf("%s | %d/%d", filetype, E.cy+1, len(E.rows))
 	rlen := len(rstatus)
 	ab.WriteString(status[:ln])
 	for ln < E.screen.cols {
