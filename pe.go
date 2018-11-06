@@ -169,8 +169,8 @@ const (
 )
 
 const (
-	HL_NORMAL = 0
-	HL_MATCH  = iota
+	HL_NORMAL = iota
+	HL_MATCH
 )
 
 // data
@@ -205,8 +205,7 @@ var E editorConfig
 // terminal
 
 func die(err error) {
-	io.WriteString(termOut, "\x1b[2J")
-	io.WriteString(termOut, "\x1b[H")
+	io.WriteString(termOut, "\x1b[2J\x1b[H")
 	log.Fatal(err)
 }
 
