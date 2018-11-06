@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -65,29 +66,21 @@ func (c Console) getWindowSize() (rows, cols int, err error) {
 	return int(w.Row), int(w.Col), nil
 }
 
-func (c Console) editorReadKey() (key int) {
-	// only fo debugging
+func (c Console) editorReadKey() (outKey int) {
 	defer func() {
-		path := "./testdata/keys"
-		var _, err = os.Stat(path)
+		if *key.store {
+			// only for debugging
+			path := key.filename
 
-		// create file if not exists
-		if os.IsNotExist(err) {
-			var file, err = os.Create(path)
+			content, err := ioutil.ReadFile(path)
 			if err != nil {
 				log.Fatal(err)
 			}
-			file.Close()
-		}
-
-		content, err := ioutil.ReadFile(path)
-		if err != nil {
-			log.Fatal(err)
-		}
-		content = append(content, []byte(strconv.Itoa(key)+" \n")...)
-		err = ioutil.WriteFile(path, content, 0644)
-		if err != nil {
-			log.Fatal(err)
+			content = append(content, []byte(strconv.Itoa(outKey)+" \n")...)
+			err = ioutil.WriteFile(path, content, 0644)
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
 	}()
 
@@ -1071,7 +1064,43 @@ func editorSetStatusMessage(format string, a ...interface{}) {
 
 // init
 
+// flags
+var key = struct {
+	store    *bool
+	filename string // path of keys filename
+	text     string // path of text filename
+}{}
+
 func main() {
+	// flag
+	key.store = flag.Bool("kr", false, "Debug tool for keys record and save file result.\n"+
+		"Files(keys, text) are save in folder './testdata/'.")
+	filename := flag.String("e", "", "Edit file")
+
+	flag.Parse()
+
+	E.filename = *filename
+
+	// generate key store
+	if *key.store {
+		for prefix := 0; ; prefix++ {
+			key.filename = fmt.Sprintf("./testdata/%d.keys", prefix)
+			key.text = fmt.Sprintf("./testdata/%d.file", prefix)
+			if _, err := os.Stat(key.filename); os.IsNotExist(err) { // create file if not exists
+				files := []string{key.filename, key.text}
+				for _, filename := range files {
+					file, err := os.Create(filename)
+					if err != nil {
+						log.Fatal(err)
+						return
+					}
+					file.Close()
+				}
+				break
+			}
+		}
+	}
+
 	//  enable raw mode
 	origTermios := TcGetAttr(os.Stdin.Fd())
 	var raw syscall.Termios
@@ -1113,9 +1142,11 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("Cannot initialize editor: %v", err)
 	}
-	// if len(os.Args) > 1 {
-	// 	editorOpen(os.Args[1])
-	// }
+	if key.store != nil && *key.store {
+		editorOpen(key.text)
+	} else if E.filename != "" {
+		editorOpen(E.filename)
+	}
 
 	editorSetStatusMessage("HELP: Ctrl-S = save | Ctrl-Q = quit | Ctrl-F = find")
 
